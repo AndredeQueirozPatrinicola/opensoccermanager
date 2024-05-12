@@ -1,9 +1,20 @@
+require('reflect-metadata');
 import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 
-function createWindow(): void {
+const { createConnection } = require('typeorm');
+import { Player } from '../data/entities/Player';
+import {CreatePlayer1715538759362} from '../data/migrations/1715538759362-createPlayer';
+import { DataSource, DataSourceOptions } from 'typeorm';
+
+import { WebContentMessage } from '../types/WebContentMessage';
+import { createRoutes } from './routes';
+import { createRoutesDispatcher } from './dispatcher';
+
+
+async function createWindow(): Promise<void>{
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     show: false,
@@ -14,6 +25,56 @@ function createWindow(): void {
       sandbox: false
     }
   })
+
+  const connection = await createConnection({
+    type: 'sqlite',
+    database: '../data/database.db',
+    entities: [
+      Player
+    ],
+    migrations: [
+      CreatePlayer1715538759362
+    ],
+    cli: {
+      migrationsDir: '../data/migrations'
+    }
+  });
+
+  await connection.runMigrations();
+  
+  const dataSource = new DataSource({
+    type: 'sqlite',
+    database: '../data/database.db',
+    entities: ["src/data/entities/*.ts"],
+    migrations: [
+      CreatePlayer1715538759362
+    ],
+    cli: {
+      migrationsDir: '../data/migrations'
+    }
+  } as DataSourceOptions)
+  
+  dataSource.initialize();
+
+  const routes = createRoutesDispatcher(createRoutes(dataSource));
+  
+  ipcMain.on('query', async (event, route) => {
+    try {
+      console.log("chamei query")
+      const data = await routes.dispatch(route)
+      console.log(data)
+      mainWindow.webContents.send('query-result', {
+        status: true,
+        data: data
+      } as WebContentMessage);
+    } catch (error) {
+      console.error('Error executing query:', error);
+      mainWindow.webContents.send('query-error', {
+        status: false,
+        data: `${error}`
+      } as WebContentMessage); 
+    }
+  });
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.maximize()
@@ -52,6 +113,8 @@ app.whenReady().then(() => {
   ipcMain.on('quit-app', (event, arg) => {
     app.quit();
   });
+
+  // ipcMain.on()
 
   createWindow()
 

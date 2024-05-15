@@ -25,23 +25,16 @@ class Dispatcher {
         if (!(event in this.handlers)) {
             this.handlers[event] = [];
         }
-        // console.log(`ARGS>>>> ${customStringify(args)}`)
         this.handlers[event].push({ function: func, args: args });
     }
 
     public async dispatch(event: {query:string}): Promise<any> {
-        // console.log(this.handlers)
-        // console.log(event)
         const tasks = this.handlers[event.query];
-        // console.log(`tasks >> ` + customStringify(tasks));
         if (tasks) {
             for (const task of tasks) {
                 const func = task.function;
                 const args = task.args;
-                console.log("???")
-                console.log(customStringify(args))
-                console.log("???")
-                return await func({dataSource: args[0], select: args[1]});
+                return await func({connection: args[0], query: args[1]});
             }
         }
     }
@@ -51,7 +44,6 @@ class Dispatcher {
 export const createRoutesDispatcher = (routes: Route[]): Dispatcher => {
     const dispatcher = new Dispatcher();
     routes.map((value, _) => {
-        console.log(`<><><><><> ${value.handler.args[0]} ${value.handler.args[1]}`)
         dispatcher.addHandler(
             value.path, 
             value.handler.function,

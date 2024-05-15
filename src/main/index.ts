@@ -45,7 +45,7 @@ async function createWindow(): Promise<void>{
   const dataSource = new DataSource({
     type: 'sqlite',
     database: '../data/database.db',
-    entities: ["src/data/entities/*.ts"],
+    entities: [__dirname + '/../**/*.entity.{js,ts}'],
     migrations: [
       CreatePlayer1715538759362
     ],
@@ -56,13 +56,11 @@ async function createWindow(): Promise<void>{
   
   dataSource.initialize();
 
-  const routes = createRoutesDispatcher(createRoutes(dataSource));
+  const routes = createRoutesDispatcher(createRoutes(connection));
   
   ipcMain.on('query', async (event, route) => {
     try {
-      console.log("chamei query")
       const data = await routes.dispatch(route)
-      console.log(data)
       mainWindow.webContents.send('query-result', {
         status: true,
         data: data
